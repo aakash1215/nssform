@@ -61,13 +61,12 @@ def register():
 
         # Construct the row for Google Sheets, ensuring order matches your sheet columns
         row = [
-            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), # Timestamp
+            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # Time
             data.get("Name"),
             data.get("Gender"),
             data.get("Father's Name"),
             data.get("Date of Birth"),
             data.get("Category"),
-            data.get("Blood Group"),
             data.get("Course"),
             data.get("Year of Admission"),
             data.get("Department"),
@@ -76,11 +75,14 @@ def register():
             data.get("Background"),
             data.get("Permanent Address"),
             data.get("Correspondence Address"),
+            data.get("Blood Group"),
             data.get("Email"),
             data.get("Mobile Number"),
-            data.get("Photo"), # This will be the ImgBB URL
-            data.get("Sign"),  # This will be the ImgBB URL
+            data.get("Photo"),
+            data.get("Sign"),
+            data.get("Transaction ID")  # ✅ Missing field fixed here
         ]
+
 
         sheet.append_row(row)
         # Change 'status' to 'success' to match your JS client-side check
