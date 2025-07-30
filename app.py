@@ -4,6 +4,12 @@ import os
 import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+from dotenv import load_dotenv
+load_dotenv()
+
+private_key_raw = os.getenv("GOOGLE_PRIVATE_KEY").replace("\\n", "\n")
+print("Key starts with:", private_key_raw[:30])
+
 
 app = Flask(__name__)
 # Allow CORS for all origins, you might want to restrict this in production
