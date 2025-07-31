@@ -51,7 +51,7 @@ def register():
             "Name", "Gender", "Father's Name", "Date of Birth", "Category",
             "Blood Group", "Course", "Year of Admission", "Department",
             "Semester", "Background", "Permanent Address",
-            "Correspondence Address", "Email", "Mobile Number", "Photo", "Sign"
+            "Correspondence Address", "Email", "Mobile Number", "Photo", "Sign", "Payment Screenshot"
         ]
 
         # Check for missing or empty required fields
@@ -80,7 +80,8 @@ def register():
             data.get("Mobile Number"),
             data.get("Photo"),
             data.get("Sign"),
-            data.get("Transaction ID")  # ✅ Missing field fixed here
+            data.get("Transaction ID")
+            data.get("Payment Screenshot")  # ✅ Missing field fixed here
         ]
 
 
