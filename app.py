@@ -69,7 +69,7 @@ def register():
         required_fields = [
             "Name", "Gender", "Father's Name", "Date of Birth", "Category",
             "Blood Group", "Course", "Year of Admission", "Department",
-            "Semester", "Enrollment Number", "Background", "Permanent Address",
+            "Semester", "Background", "Permanent Address",
             "Correspondence Address", "Email", "Mobile Number",
             "Photo", "Sign", "Payment Screenshot", "Transaction ID" # Added new fields
         ]
