@@ -6,6 +6,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from dotenv import load_dotenv
 import logging
+from concurrent.futures import ThreadPoolExecutor
 
 # Load environment variables from .env file
 load_dotenv()
@@ -78,6 +79,27 @@ except gspread.exceptions.APIError as api_e:
 except Exception as e:
     logging.error(f"❌ General Error connecting to Google Sheets: {e}", exc_info=True)
 
+# Initialize a ThreadPoolExecutor for background tasks
+# The max_workers should be tuned based on your server resources and expected concurrency.
+# A common starting point is (number of CPU cores * 2) or more, depending on I/O bound tasks.
+executor = ThreadPoolExecutor(max_workers=5) # Adjust max_workers as needed
+
+def _append_data_to_sheet(row_data):
+    """Helper function to run the blocking gspread operation in a separate thread."""
+    try:
+        sheet.append_row(row_data)
+        logging.info("✅ Data successfully appended to Google Sheet in background.")
+        return True, "Registration successful!"
+    except gspread.exceptions.APIError as api_e:
+        logging.error(f"❌ Google Sheets API error during append_row in background: {api_e}", exc_info=True)
+        return False, f"Failed to save data due to a Google Sheets API error: {api_e}"
+    except gspread.exceptions.WorksheetNotFound:
+        logging.error("❌ Google Sheets: The specified worksheet was not found in background operation.", exc_info=True)
+        return False, "Server configuration error: Worksheet not found."
+    except Exception as e:
+        logging.error(f"❌ Unhandled ERROR during background append_row: {str(e)}", exc_info=True)
+        return False, f"An unexpected error occurred during data saving: {e}"
+
 @app.route("/register", methods=["POST"])
 def register():
     if sheet is None:
@@ -108,8 +130,6 @@ def register():
                 return jsonify(success=False, message=f"Missing or empty required field: {field}"), 400
 
         # Optional: Add basic validation for URL fields
-        # This checks if they are non-empty strings. More robust URL validation
-        # (e.g., using regex or a dedicated library) could be added if needed.
         image_url_fields = ["Photo", "Sign", "Payment Screenshot"]
         for field in image_url_fields:
             url = data.get(field)
@@ -118,9 +138,6 @@ def register():
                 return jsonify(success=False, message=f"Invalid URL format for {field}. Must be a valid HTTP/HTTPS URL."), 400
 
         # Construct the row for Google Sheets
-        # IMPORTANT: The order here MUST match the column order in your Google Sheet.
-        # If your sheet has columns like "Timestamp", "Full Name", "Gender", etc.,
-        # ensure this list's order reflects that.
         row = [
             datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # Timestamp for when registration was received
             data.get("Name"),
@@ -133,9 +150,6 @@ def register():
             data.get("Year of Admission"),
             data.get("Department"),
             data.get("Semester"),
-            # Ensure "Enrollment Number" is handled. If it's not a required_field
-            # but is expected in the row, use .get() gracefully.
-            # If it IS a required field, add it to required_fields list above.
             data.get("Enrollment Number", ""), # Assuming it might be optional, provide default empty string
             data.get("Background"),
             data.get("Permanent Address"),
@@ -148,19 +162,16 @@ def register():
             data.get("Transaction ID") # Plain text
         ]
 
-        # Append the row to the Google Sheet
-        sheet.append_row(row)
-        logging.info("✅ Data successfully appended to Google Sheet.")
+        # Submit the Google Sheet append operation to the thread pool
+        # This makes the /register endpoint respond immediately, while the sheet update happens in the background.
+        # Note: The client will receive a success message before the data is actually written to the sheet.
+        # If strong consistency is needed (i.e., ensure data is written before responding), this approach is not suitable.
+        executor.submit(_append_data_to_sheet, row)
+        logging.info("🚀 Data submitted for background processing to Google Sheet.")
         
-        # Return a success response
-        return jsonify(success=True, message="Registration successful!")
-        
-    except gspread.exceptions.APIError as api_e:
-        logging.error(f"❌ Google Sheets API error during append_row: {api_e}. Check sheet permissions or quota.", exc_info=True)
-        return jsonify(success=False, message=f"Failed to save data due to a Google Sheets API error. Please try again later."), 500
-    except gspread.exceptions.WorksheetNotFound:
-        logging.error("❌ Google Sheets: The specified worksheet was not found. Check sheet name/index.", exc_info=True)
-        return jsonify(success=False, message="Server configuration error: Worksheet not found."), 500
+        # Return an immediate success response
+        return jsonify(success=True, message="Registration request received and being processed!")
+            
     except TypeError as te:
         logging.error(f"❌ Data Type Error during registration: {te}. Likely an issue with data format or missing key.", exc_info=True)
         return jsonify(success=False, message=f"Invalid data format received. Please check your input."), 400
@@ -174,4 +185,7 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", 8080))
     logging.info(f"🚀 Starting Flask app on http://0.0.0.0:{port}")
 
+    # When deploying with a WSGI server like Gunicorn, you would typically
+    # let Gunicorn manage the workers/threads, and you wouldn't run app.run() directly.
+    # For local development, this is fine.
     app.run(host="0.0.0.0", port=port)
